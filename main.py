@@ -7,9 +7,10 @@ import datetime
 import requests
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Carregar variáveis de ambiente do ficheiro .env
 load_dotenv()
 
+# Importar componentes necessários do Langchain
 from langchain.agents import AgentOutputParser
 from langchain.schema import AgentAction, AgentFinish
 from langchain_core.tools import tool
@@ -20,10 +21,12 @@ from rich.panel import Panel
 from langchain_community.tools import DuckDuckGoSearchRun
 from typing import List
 
+# Inicializar o console para apresentação formatada
 console = console.Console()
 
 
 class CustomOutputParser(AgentOutputParser):
+    """Analisador personalizado para processar a saída do modelo de linguagem."""
     def parse(self, llm_output: str):
         # Verificar se é uma resposta final
         if "Final Answer:" in llm_output:
@@ -32,27 +35,27 @@ class CustomOutputParser(AgentOutputParser):
                 log=llm_output,
             )
 
-        # Extrair ação e entrada da ação
+        # Extrair ação e entrada da ação usando expressões regulares
         action_match = re.search(r"Action: (.*?)[\n]", llm_output)
         action_input_match = re.search(r"Action Input: (.*)", llm_output)
 
         if not action_match or not action_input_match:
-            raise ValueError(f"Could not parse LLM output: `{llm_output}`")
+            raise ValueError(f"Não foi possível analisar a saída do LLM: `{llm_output}`")
 
         action = action_match.group(1).strip()
         action_input = action_input_match.group(1).strip()
 
-        # Tentar parsear a entrada como JSON
+        # Tentar analisar a entrada como JSON
         try:
             # Verificar se a entrada já é um dicionário
             if isinstance(action_input, dict):
                 return AgentAction(tool=action, tool_input=action_input, log=llm_output)
 
-            # Tentar parsear a string como JSON
+            # Tentar analisar a string como JSON
             parsed_input = json.loads(action_input)
             return AgentAction(tool=action, tool_input=parsed_input, log=llm_output)
         except json.JSONDecodeError:
-            # Se não for um JSON válido, tentar extrair os valores diretamente
+            # Se não for um JSON válido, tentar extrair os valores diretamente usando regex
             try:
                 a_match = re.search(r'"a":\s*(\d+(?:\.\d+)?)', action_input)
                 b_match = re.search(r'"b":\s*(\d+(?:\.\d+)?)', action_input)
@@ -70,10 +73,11 @@ class CustomOutputParser(AgentOutputParser):
             return AgentAction(tool=action, tool_input=action_input, log=llm_output)
 
 
+# Obter chaves de API das variáveis de ambiente
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 APITUBE_KEY = os.environ["APITUBE_KEY"]
 
-# Ferramentas
+# Definição das ferramentas personalizadas para o agente
 @tool
 def somar(a: float, b: float) -> float:
     """Soma dois números e retorna o resultado."""
@@ -90,17 +94,17 @@ def subtrair(a: float, b: float) -> float:
 def noticias_cripto(word : str) -> str:
     """Retorna as últimas notícias sobre criptomoedas."""
     try:
-        # https://apitube.io/ free but limited
-        # Delayed by 12 hours
-        # 10 articles per request
-        # 200 requests/day
+        # API da apitube.io com limitações:
+        # - Atraso de 12 horas nas notícias
+        # - Máximo de 10 artigos por pedido
+        # - Limite de 200 pedidos por dia
         response = requests.get(f"https://api.apitube.io/v1/news/everything?q=(title:{word}%20AND%20language.name:English)&is_duplicate=false&sort_by=publish_date&api_key={APITUBE_KEY}")
         if response.status_code == 200:
             data = response.json()
             news_results = data.get("results", [])
-            # Extract only the relevant fields from each news item
+            # Extrair apenas os campos relevantes de cada notícia
             filtered_news = ""
-            for item in news_results[:10]:  # Limit to 10 news items
+            for item in news_results[:10]:  # Limitar a 10 notícias
                 filtered_news += item.get('title', 'N/A') + "\n"
                 filtered_news += item.get('published_at', 'N/A') + "\n"
                 filtered_news += item.get('description', 'N/A') + "\n"
@@ -112,29 +116,31 @@ def noticias_cripto(word : str) -> str:
         return f"Erro ao buscar notícias: {str(e)}"
 
 
-# Adicionar a ferramenta de pesquisa DuckDuckGo
+# Configurar a ferramenta de pesquisa DuckDuckGo para obter informações da web
 search_tool = DuckDuckGoSearchRun()
 
-# Adicionar uma descrição mais detalhada para a ferramenta de pesquisa
+# Adicionar um nome e uma descrição mais detalhada para a ferramenta de pesquisa
 search_tool.name = "search"
 search_tool.description = """
-Útil quando você precisa responder perguntas sobre eventos atuais, informações gerais,
-pessoas, lugares, fatos, história, etc. Recebe uma consulta de pesquisa como entrada.
+Útil quando precisas de responder a perguntas sobre eventos atuais, informações gerais,
+pessoas, lugares, factos, história, etc. Recebe uma consulta de pesquisa como entrada.
 """
 
+# Lista de todas as ferramentas disponíveis para o agente
 tools = [somar, subtrair, search_tool, noticias_cripto]
 
-# Modelo de linguagem
+# Configurar o modelo de linguagem Groq (LLM)
 llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0.3,
-    groq_api_key=os.environ["GROQ_API_KEY"],
+    model="llama-3.3-70b-versatile",  # Modelo Llama 3.3 de 70 biliões de parâmetros
+    temperature=0.3,  # Temperatura baixa para respostas mais determinísticas
+    groq_api_key=os.environ["GROQ_API_KEY"],  # Chave API da Groq
 )
 
+# Obter a data e hora atual formatada
 current_datetime = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-# Template do prompt para o agente
-# Template do prompt com chaves escapadas corretamente
+# Definir o template do prompt para o agente
+# Template com chaves escapadas corretamente para formatação
 prompt = PromptTemplate.from_template("""
 Você é um assistente útil que pode responder perguntas usando ferramentas quando necessário.
 A data e hora atual é: {current_datetime}. Use esta informação quando relevante.
@@ -181,44 +187,45 @@ USER INPUT: {input}
 {agent_scratchpad}
 """)
 
-# Criar o agente
-# agent = create_react_agent(llm, tools, prompt)
+# Criar o agente ReAct com o modelo de linguagem, ferramentas e prompt definidos
 agent = create_react_agent(llm, tools, prompt, output_parser=CustomOutputParser())
 
-# Executar o agente
+# Configurar o executor do agente
 agent_executor = AgentExecutor(
     agent=agent,
     tools=tools,
-    verbose=False,
-    handle_parsing_errors=True,
+    verbose=False,  # Não mostrar detalhes da execução
+    handle_parsing_errors=True,  # Lidar com erros de análise
     max_iterations=5,  # Limitar número de tentativas para evitar loops infinitos
 )
 
-# Exemplos e execução (o resto do código continua igual)
-
-# Exemplos de uso
+# Lista de exemplos de perguntas para testar o agente
 exemplos = [
-    "Quanto é 42 mais 28?",
-    "Calcule 150 menos 75",
-    "Quem é o atual presidente do Portugal?",
-    "Quais são os principais pontos turísticos de Portugal em 2024?",
-    "Qual a diferença entre 2000 e 1985?",
-    "O que é machine learning?",
-    "Noticias da XRP e Ripple de 2025?",
+    "Quanto é 42 mais 28?",  # Teste da ferramenta de soma
+    "Calcule 150 menos 75",  # Teste da ferramenta de subtração
+    "Quem é o atual presidente do Portugal?",  # Teste da ferramenta de pesquisa
+    "Quais são os principais pontos turísticos de Portugal em 2024?",  # Teste da ferramenta de pesquisa
+    "Qual a diferença entre 2000 e 1985?",  # Teste da ferramenta de subtração
+    "O que é machine learning?",  # Teste da ferramenta de pesquisa
+    "Noticias da XRP e Ripple de 2025?",  # Teste da ferramenta de notícias
 ]
 
-# Executar exemplos
+# Executar cada exemplo e apresentar os resultados formatados
 for exemplo in exemplos:
     try:
+        # Invocar o agente com a pergunta e a data/hora atual
         resposta = agent_executor.invoke(
             {"input": exemplo, "current_datetime": current_datetime}
         )
+        # Criar um painel formatado com a resposta
         panel = Panel.fit(
             f"{resposta['output']}",
             title=f"{exemplo}",
             border_style="bold blue",
         )
+        # Apresentar o painel no console
         console.print(panel)
+        # Pausa de 2 segundos entre exemplos
         time.sleep(2)
     except Exception as e:
         print(f"ERRO: {str(e)}")
