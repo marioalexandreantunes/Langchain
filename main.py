@@ -76,6 +76,7 @@ class CustomOutputParser(AgentOutputParser):
 # Obter chaves de API das variáveis de ambiente
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 APITUBE_KEY = os.environ["APITUBE_KEY"]
+GNEWS_KEY = os.environ["GNEWS_KEY"]
 
 # Definição das ferramentas personalizadas para o agente
 @tool
@@ -94,6 +95,21 @@ def subtrair(a: float, b: float) -> float:
 def noticias_cripto(word : str) -> str:
     """Retorna as últimas notícias sobre criptomoedas."""
     try:
+        '''
+        # Outra opção de API de notícias: 100 por dia , 10 noticias, 
+        response = requests.get(f'https://gnews.io/api/v4/search?q="{word}"&apikey={GNEWS_KEY}&lang=en')
+        if response.status_code == 200:
+            data = response.json()
+            articles = data.get("articles", [])
+            filtered_news = ""
+            for item in news_results[:10]:  # Limitar a 10 notícias
+                filtered_news += item.get('title', 'N/A') + "\n"
+                filtered_news += item.get('publishedAt', 'N/A') + "\n"
+                filtered_news += item.get('description', 'N/A') + "\n"
+                filtered_news += item.get('content', 'N/A') + "\n\n"
+            return filtered_news
+        '''
+        
         # API da apitube.io com limitações:
         # - Atraso de 12 horas nas notícias
         # - Máximo de 10 artigos por pedido
@@ -162,7 +178,7 @@ Action Input: {{{{\"a\": número1, \"b\": número2}}}}
 Para usar a ferramenta de noticias_cripto, utilize o seguinte formato:
 Thought: Preciso buscar notícias sobre isso
 Action: noticias_cripto
-Action Input: {{{{word: palavra-chave}}}}
+Action Input: {{{{palavra-chave}}}}
 
 Para usar a ferramenta de pesquisa, utilize o seguinte formato:
 Thought: Preciso buscar informações sobre isso
