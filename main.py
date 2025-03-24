@@ -78,6 +78,9 @@ GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 APITUBE_KEY = os.environ["APITUBE_KEY"]
 GNEWS_KEY = os.environ["GNEWS_KEY"]
 
+# https://free-apis.github.io/#/browse
+# https://www.freepublicapis.com/
+
 # Definição das ferramentas personalizadas para o agente
 @tool
 def somar(a: float, b: float) -> float:
@@ -108,6 +111,12 @@ def noticias_cripto(word : str) -> str:
                 filtered_news += item.get('description', 'N/A') + "\n"
                 filtered_news += item.get('content', 'N/A') + "\n\n"
             return filtered_news
+        '''
+        
+        '''
+        # https://openapi.coinstats.app/ gratis 
+        # 1000000 / mês
+        # tem preços moedas e noticias
         '''
         
         # API da apitube.io com limitações:
